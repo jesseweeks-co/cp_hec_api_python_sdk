@@ -1,6 +1,6 @@
 # Check Point Harmony Email and Collaboration SDK Library
 # cp_hec_api.py
-# version 1.1
+# version 1.1 
 #
 # A library for communicating with Check Point's Harmony Email
 # and Collaboration, the Check Point Infinity Portal

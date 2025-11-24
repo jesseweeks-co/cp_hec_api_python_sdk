@@ -113,7 +113,7 @@ CPHEC = CPHEC(ClientID, SecretKey, region)
 # exception_delete = CPHEC.exception_delete(exception_type, exception_id)
 # print(exception_delete)
 
-#Download an email from HEC by entity id
+#Download an email from HEC by entity id 
 #entityid = '16c3867f0bc62ea82c32d3c162ba544e'
 #getoriginalfile = False  #default is false
 #savePath = "c:\temp\myemail.eml"  #default is save entityid.eml in current directory, ""
