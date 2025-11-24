@@ -6,3 +6,4 @@
 .dist/
 .build/
 .cphec.egg-info/
+/__pycache__
