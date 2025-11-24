@@ -1,10 +1,11 @@
 # Check Point Harmony Email and Collaboration SDK Library
 # cp_hec_api.py
-# version 1.0
+# version 1.1
 #
 # A library for communicating with Check Point's Harmony Email
 # and Collaboration, the Check Point Infinity Portal
 # written by: Travis Lockman
+# contributions by: Jesse Weeks - coding for coffee
 # May 2023
 # O_o tHe pAcKeTs nEvEr LiE o_O #
 
@@ -33,6 +34,7 @@ EXCEPTION_CREATE = f'/exceptions/{{}}'
 EXCEPTION_MODIFY = f'/exceptions/{{}}/{{}}'
 EXCEPTION_DELETE = f'/exceptions/{{}}/delete/{{}}'
 TASK_STATUS = f'/task/{{}}'
+DOWNLOAD_ENTITY = f'/download/entity/{{}}'
 
 # ERRORS
 TOKEN_ERROR = 'An error occurred while attempting to retrieve your token. Please check your ClientID and/or Secret Key.'
@@ -426,7 +428,39 @@ class CPHEC:
                                          (self.build_headers()))
         return response
 
+    def entity_download(self, entityId, originalEmail: bool=False, save_path=None):
+        """
+        This endpoint allows users to download a Harmony Email & CollaborationSaaS entity email file from an S3 bucket. You can choose to download either with or without processing modifications.
+        Download a SaaS entity email file using a single entity ID and GET request to the following endpoint: /v1.0/download/entity/{entity_id}
+        Reference https://sc1.checkpoint.com/documents/Harmony_Email_and_Collaboration_API_Reference/Topics-HEC-Avanan-API-Reference-Guide/Downloading-SaaS-Entity.htm?tocpath=_____7
+        
+        :param entityId: string: Required. ID of the entity you want to see.
+        :param originalEmail (boolean: Optional): True: The system downloads the original email without modifications. False (default): The system downloads the email with the headers added for visibility into the security processes.
+           as of 11.21.25 this does not seem to do anything
+        :param save_path (str, optional): File path to save the downloaded email. Defaults to '{entity_id}.eml'.
+        :return: .eml application/message/rfc822
+        """
+        
+        params = {
+            "original": str(originalEmail).lower()
+        }
+              
+        response = requests.get(self.build_url_path(DOWNLOAD_ENTITY.format(entityId)),headers=self.build_headers(),params=params)
 
+        if response.status_code == 200:
+            filename = save_path or f"{entityId}.eml"
+            with open(filename, "wb") as file:
+                file.write(response.content)
+            print(f"Email file downloaded and saved to: {filename}")
+            return filename
+        elif response.status_code == 404:
+            print("Email entity not found or file could not be found.")
+        elif response.status_code == 429:
+            print(f"Server responded Too Many Requests - Try again in a few... Status code: {response.status_code}")
+        else:
+            print(f"Failed to download email file. Status code: {response.status_code}")
+        
+        return None
 
 
 
