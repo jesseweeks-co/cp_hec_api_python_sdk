@@ -16,8 +16,12 @@ from datetime import datetime
 # API URLs
 API_ROOT = {
     'Europe': 'https://cloudinfra-gw.portal.checkpoint.com',
+    'EU': 'https://cloudinfra-gw.portal.checkpoint.com',
+    'US': 'https://cloudinfra-gw-us.portal.checkpoint.com',
     'USA': 'https://cloudinfra-gw-us.portal.checkpoint.com',
+    'AU': 'https://cloudinfra-gw-ap.portal.checkpoint.com',
     'Australia': 'https://cloudinfra-gw-ap.portal.checkpoint.com',
+    'IN': 'https://cloudinfra-gw-in.portal.checkpoint.com',
     'India': 'https://cloudinfra-gw-in.portal.checkpoint.com'
 }
 AUTH = '/auth/external'
@@ -33,6 +37,7 @@ EXCEPTION_BY_ID = f'/exceptions/{{}}/{{}}'
 EXCEPTION_CREATE = f'/exceptions/{{}}'
 EXCEPTION_MODIFY = f'/exceptions/{{}}/{{}}'
 EXCEPTION_DELETE = f'/exceptions/{{}}/delete/{{}}'
+EXCEPTION_ANTIPHISHING_ALL = f'/exceptions/anti_phishing/{{}}'
 TASK_STATUS = f'/task/{{}}'
 DOWNLOAD_ENTITY = f'/download/entity/{{}}'
 
@@ -107,9 +112,11 @@ class CPHEC:
         """
         if token_request:
             url_path = f'{API_ROOT[self.region]}{AUTH}'
+            #print(url_path)
             return url_path
         else:
             url_path = f'{API_ROOT[self.region]}{APP}{api_endpoint}'
+            #print(url_path)
             return url_path
 
 
@@ -331,6 +338,15 @@ class CPHEC:
         response = self.get_full_request((self.build_url_path(EXCEPTION_ALL.format(excType))),
                                          (self.build_headers()))
         return response
+        
+    def exception_antiphishing_get_all(self):
+        """
+        Retrieve all exceptions of the anti-phishing type.
+        :return: json: JSON object containing all exceptions.
+        """
+        response = self.get_full_request((self.build_url_path(EXCEPTION_ANTIPHISHING_ALL)),
+                                         (self.build_headers()))
+        return response
 
     def exception_by_id(self, excType, excId):
         """
@@ -428,7 +444,7 @@ class CPHEC:
                                          (self.build_headers()))
         return response
 
-    def entity_download(self, entityId, originalEmail: bool=False, save_path=None):
+    def entity_download(self, entityId, originalEmail: bool=False):
         """
         This endpoint allows users to download a Harmony Email & CollaborationSaaS entity email file from an S3 bucket. You can choose to download either with or without processing modifications.
         Download a SaaS entity email file using a single entity ID and GET request to the following endpoint: /v1.0/download/entity/{entity_id}
@@ -437,8 +453,7 @@ class CPHEC:
         :param entityId: string: Required. ID of the entity you want to see.
         :param originalEmail (boolean: Optional): True: The system downloads the original email without modifications. False (default): The system downloads the email with the headers added for visibility into the security processes.
            as of 11.21.25 this does not seem to do anything
-        :param save_path (str, optional): File path to save the downloaded email. Defaults to '{entity_id}.eml'.
-        :return: .eml application/message/rfc822
+        :return: .eml application/message/rfc822 format in text form (API Query Response)
         """
         
         params = {
@@ -446,22 +461,7 @@ class CPHEC:
         }
               
         response = requests.get(self.build_url_path(DOWNLOAD_ENTITY.format(entityId)),headers=self.build_headers(),params=params)
-
-        if response.status_code == 200:
-            filename = save_path or f"{entityId}.eml"
-            with open(filename, "wb") as file:
-                file.write(response.content)
-            print(f"Email file downloaded and saved to: {filename}")
-            return filename
-        elif response.status_code == 404:
-            print("Email entity not found or file could not be found.")
-        elif response.status_code == 429:
-            print(f"Server responded Too Many Requests - Try again in a few... Status code: {response.status_code}")
-        else:
-            print(f"Failed to download email file. Status code: {response.status_code}")
         
-        return None
-
-
+        return response
 
 
