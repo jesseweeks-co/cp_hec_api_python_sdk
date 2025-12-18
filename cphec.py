@@ -212,7 +212,7 @@ class CPHEC:
         return response
 
     def event_query(self, startDate, endDate=None, eventTypes=None, eventStates=None, severities=None, saas=None,
-                     eventIds=None, confidenceIndicator=None, description=None, scrollId=None):
+                     eventIds=None, confidenceIndicator=None, description=None, scrollId=None, senderAddress=None):
         """
         Security event query utilizing various parameters.  See API guide for full documentation.
         The optional parameters must be passed as key=value, e.g. (description="Incident 88484")
