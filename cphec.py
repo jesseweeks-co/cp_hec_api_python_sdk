@@ -13,7 +13,7 @@
 import requests
 from datetime import datetime
 
-debugMode = True #debug mode used during development only -- try not to write this as true to GH
+debugMode = False #debug mode used during development only -- try not to write this as true to GH
 
 # API URLs
 API_ROOT = {
