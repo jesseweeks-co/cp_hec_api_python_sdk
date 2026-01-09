@@ -13,6 +13,8 @@
 import requests
 from datetime import datetime
 
+debugMode = True #debug mode used during development only -- try not to write this as true to GH
+
 # API URLs
 API_ROOT = {
     'Europe': 'https://cloudinfra-gw.portal.checkpoint.com',
@@ -32,12 +34,18 @@ EVENT_ACTION = '/action/event'
 ENTITY_BY_ID = f'/search/entity/{{}}'
 ENTITY_SEARCH = '/search/query'
 ENTITY_ACTION = '/action/entity'
-EXCEPTION_ALL = f'/exceptions/{{}}'
-EXCEPTION_BY_ID = f'/exceptions/{{}}/{{}}'
+EXCEPTION_ALL = f'/exceptions/{{}}' #supports old exception types anti-phishing allow, anti-phishing block, anti-spam allow
+EXCEPTION2_ALL = f'/sectools/{{}}/exceptions'   #using undocumented sectools path for new exception types click_time_protection, anomaly
+EXCEPTION3_ALL = f'/sectool-exceptions/{{}}/exceptions/{{}}'    #using undocumented sectools-exceptions path for DLP, Malware, and URL Reputation where sectool=avanan_dlp, avanan_url, or checkpoint2 and exceptions_type is required param to get
+EXCEPTION_BY_ID = f'/exceptions/{{}}/{{}}'  #supports old exception types anti-phishing allow aka whitelist, anti-phishing block and blacklist, anti-spam allow aka spam_whitelist
+EXCEPTION2_BY_ID = f'/sectools/{{}}/exceptions/{{}}'    #using undocumented sectools path for new exception types click_time_protection, anomaly
+EXCEPTION2_CTP_WITH_ITEM = f'/sectools/{{}}/exceptions/{{}}/{{}}'  #required for using CTP Items to get an item by id.. and probably do other stuff with it only if item ID is specified
+EXCEPTION3_BY_ID = f'/sectool-exceptions/{{}}/exceptions/{{}}/{{}}'    #using undocumented sectools-exceptions path for DLP, Malware, and URL Reputation where sectool=avanan_dlp, avanan_url, or checkpoint2
 EXCEPTION_CREATE = f'/exceptions/{{}}'
+EXCEPTION2_CREATE = f'/sectools/{{}}'
 EXCEPTION_MODIFY = f'/exceptions/{{}}/{{}}'
 EXCEPTION_DELETE = f'/exceptions/{{}}/delete/{{}}'
-EXCEPTION_ANTIPHISHING_ALL = f'/exceptions/anti_phishing/{{}}'
+EXCEPTION2_DELETE = f'/sectools/{{}}/delete/{{}}'
 TASK_STATUS = f'/task/{{}}'
 DOWNLOAD_ENTITY = f'/download/entity/{{}}'
 
@@ -45,7 +53,8 @@ DOWNLOAD_ENTITY = f'/download/entity/{{}}'
 TOKEN_ERROR = 'An error occurred while attempting to retrieve your token. Please check your ClientID and/or Secret Key.'
 TOKEN_AUTH_ERROR = 'A problem occurred when trying to authenticate with your token, possibly expired?'
 PATH_ERROR = 'The resource you are requesting from the server does not exist. Check the parameters you are passing.'
-
+API_TIMEOUT_ERROR = 'The HEC API has timed out during query. Please try again later or check network connectivity.'
+API_INTERNALSERVER_ERROR = 'The HEC API has an internal server error. Pleaes try again later.'
 
 class CPHEC:
     """
@@ -83,6 +92,8 @@ class CPHEC:
             return json_response
         elif http_response.status_code == 401 and json_response['message'] == 'Authentication required':
             cls.exception_handler(http_response, TOKEN_AUTH_ERROR)
+        elif http_response.status_code == 504:
+            cls.exception_handler(http_response, API_TIMEOUT_ERROR)
         return json_response
 
     @classmethod
@@ -112,11 +123,11 @@ class CPHEC:
         """
         if token_request:
             url_path = f'{API_ROOT[self.region]}{AUTH}'
-            #print(url_path)
+            if debugMode: print(url_path)
             return url_path
         else:
             url_path = f'{API_ROOT[self.region]}{APP}{api_endpoint}'
-            #print(url_path)
+            if debugMode: print(url_path)
             return url_path
 
 
@@ -162,7 +173,11 @@ class CPHEC:
         :return: json: Json object returned from the server, available for further parsing
         """
         http_response = requests.post(url=url_path, headers=headers, json=kwargs, verify=verify)
-        json_response = http_response.json()
+        if http_response.status_code == 200:
+            json_response = http_response.json()
+        elif http_response.status_code == 504:
+            json_response = None
+        else: json_response = http_response.json()
         handled_response = self.response_handler(http_response, json_response)
         return handled_response
 
@@ -178,7 +193,11 @@ class CPHEC:
         :return: json: Json object returned from the server, available for further parsing
         """
         http_response = requests.put(url=url_path, headers=headers, json=kwargs, verify=verify)
-        json_response = http_response.json()
+        if http_response.status_code == 200:
+            json_response = http_response.json()
+        elif http_response.status_code == 504:
+            json_response = None
+        else: json_response = http_response.json()
         handled_response = self.response_handler(http_response, json_response)
         return handled_response
 
@@ -191,8 +210,14 @@ class CPHEC:
         :param verify: boolean: Default is to not verify the cert
         :return: json: Json object returned from the server, available for further parsing
         """
+        #http_response = requests.get(url=url_path, headers=headers, verify=verify, timeout=(5,15))
         http_response = requests.get(url=url_path, headers=headers, verify=verify)
-        json_response = http_response.json()
+        if debugMode: print('DEBUG: http_response:',http_response)
+        if http_response.status_code == 200:
+            json_response = http_response.json()
+        elif http_response.status_code == 504:
+            json_response = None
+        else: json_response = http_response.json()
         handled_response = self.response_handler(http_response, json_response)
         return handled_response
 
@@ -332,22 +357,35 @@ class CPHEC:
     def exception_get_all(self, excType):
         """
         Retrieve all exceptions of a particular type.
-        :param excType: string: Required. Type of exception, 'whitelist' or 'blacklist'
+        :param excType: string: Required. Type of exception:, 'whitelist' or 'blacklist'
         :return: json: JSON object containing all exceptions.
         """
         response = self.get_full_request((self.build_url_path(EXCEPTION_ALL.format(excType))),
                                          (self.build_headers()))
         return response
         
-    def exception_antiphishing_get_all(self):
+    def exception2_get_all(self, excType, excType2=None):
         """
-        Retrieve all exceptions of the anti-phishing type.
+        Retrieve all exceptions of a particular type. API Updated 12.2026 with new URL Pathing
+        :param excType: string: Required. Type of exception: 'anti_malware', 'anomaly', 'click_time_protection', 'anti_phishing', 'spam_whitelist', 'url_reputation', 'DLP'
         :return: json: JSON object containing all exceptions.
         """
-        response = self.get_full_request((self.build_url_path(EXCEPTION_ANTIPHISHING_ALL)),
-                                         (self.build_headers()))
+        #logic to choose pathing based on the excType provided
+        match excType:
+            case 'click_time_protection' | 'anomaly':
+                EXCEPTION2_ALL_PATH = EXCEPTION2_ALL    #change path to support these
+            case 'whitelist' | 'blacklist' | 'spam_whitelist':
+                EXCEPTION2_ALL_PATH = EXCEPTION_ALL
+            case 'avanan_dlp' | 'checkpoint2' | 'avanan_url':
+                EXCEPTION2_ALL_PATH = EXCEPTION3_ALL    #change path to support these
+            case _:
+                EXCEPTION2_ALL_PATH = EXCEPTION_ALL #default to the og exceptions API which supports anti-phishing allowlist, blocklist, and spam_whitelist           
+        
+        response = self.get_full_request((self.build_url_path(EXCEPTION2_ALL_PATH.format(excType, excType2))),
+                                     (self.build_headers()))
+    
         return response
-
+    
     def exception_by_id(self, excType, excId):
         """
         Retrieve an exception by its ID.
@@ -356,6 +394,35 @@ class CPHEC:
         :return: json: JSON object containing your requested exception.
         """
         response = self.get_full_request((self.build_url_path(EXCEPTION_BY_ID.format(excType, excId))),
+                                         (self.build_headers()))
+        return response
+        
+    def exception2_by_id(self, excType, excId, itemId=None):
+        """
+        Retrieve an exception by its ID.
+        :param excType: string: Required. Type of exception: 'anti_malware', 'anomaly', 'click_time_protection', 'anti_phishing', 'spam_whitelist', 'url_reputation', 'DLP'
+        :param excId: string: Required. Exception ID
+        :return: json: JSON object containing your requested exception.
+        """
+        match excType:
+            case 'anomaly':
+                EXCEPTION2_ID_PATH = EXCEPTION2_ALL    #ignore any params for anomaly exception types, get does not support IDs for this type 12.22.25.
+            case 'click_time_protection' if itemId is None:
+                if debugMode: print('DEBUG: CTP excType with itemID None')
+                EXCEPTION2_ID_PATH = EXCEPTION2_BY_ID    #change path to support these
+            case 'click_time_protection' if itemId is not None:
+                if debugMode: print('DEBUG: CTP excType with itemID',itemId)
+                EXCEPTION2_ID_PATH = EXCEPTION2_CTP_WITH_ITEM     #change path to support these
+            case 'whitelist' | 'blacklist' | 'spam_whitelist':
+                EXCEPTION2_ID_PATH = EXCEPTION_BY_ID
+            case 'avanan_dlp' | 'avanan_url' | 'checkpoint2' if itemId is None:
+                EXCEPTION2_ID_PATH = EXCEPTION3_ALL    #change path to support this type. Requires sectool (excType) and exceptiontype (excType2)
+            case 'avanan_dlp' | 'avanan_url' | 'checkpoint2' if itemId is not None:
+                EXCEPTION2_ID_PATH = EXCEPTION3_BY_ID    #change path to support this type. Requires sectool (excType) and exceptiontype (excType2)
+            case _:
+                EXCEPTION2_ID_PATH = EXCEPTION_BY_ID #default to the og exceptions API which supports anti-phishing allowlist, blocklist, and spam_whitelist           
+        
+        response = self.get_full_request((self.build_url_path(EXCEPTION2_ID_PATH.format(excType, excId, itemId))),
                                          (self.build_headers()))
         return response
 
