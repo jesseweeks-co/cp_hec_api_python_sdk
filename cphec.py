@@ -36,7 +36,7 @@ ENTITY_SEARCH = '/search/query'
 ENTITY_ACTION = '/action/entity'
 EXCEPTION_ALL = f'/exceptions/{{}}' #supports old exception types anti-phishing allow, anti-phishing block, anti-spam allow
 EXCEPTION2_ALL = f'/sectools/{{}}/exceptions'   #using undocumented sectools path for new exception types click_time_protection, anomaly
-EXCEPTION3_ALL = f'/sectool-exceptions/{{}}/exceptions/{{}}'    #using undocumented sectools-exceptions path for DLP, Malware, and URL Reputation where sectool=avanan_dlp, avanan_url, or checkpoint2 and exceptions_type is required param to get
+EXCEPTION3_ALL_BY_TYPE = f'/sectool-exceptions/{{}}/exceptions/{{}}'    #using undocumented sectools-exceptions path for DLP, Malware, and URL Reputation where sectool=avanan_dlp, avanan_url, or checkpoint2 and exceptions_type is required param to get
 EXCEPTION_BY_ID = f'/exceptions/{{}}/{{}}'  #supports old exception types anti-phishing allow aka whitelist, anti-phishing block and blacklist, anti-spam allow aka spam_whitelist
 EXCEPTION2_BY_ID = f'/sectools/{{}}/exceptions/{{}}'    #using undocumented sectools path for new exception types click_time_protection, anomaly
 EXCEPTION2_CTP_WITH_ITEM = f'/sectools/{{}}/exceptions/{{}}/{{}}'  #required for using CTP Items to get an item by id.. and probably do other stuff with it only if item ID is specified
@@ -377,7 +377,7 @@ class CPHEC:
             case 'whitelist' | 'blacklist' | 'spam_whitelist':
                 EXCEPTION2_ALL_PATH = EXCEPTION_ALL
             case 'avanan_dlp' | 'checkpoint2' | 'avanan_url':
-                EXCEPTION2_ALL_PATH = EXCEPTION3_ALL    #change path to support these
+                EXCEPTION2_ALL_PATH = EXCEPTION3_ALL_BY_TYPE    #change path to support these
             case _:
                 EXCEPTION2_ALL_PATH = EXCEPTION_ALL #default to the og exceptions API which supports anti-phishing allowlist, blocklist, and spam_whitelist           
         
@@ -416,7 +416,7 @@ class CPHEC:
             case 'whitelist' | 'blacklist' | 'spam_whitelist':
                 EXCEPTION2_ID_PATH = EXCEPTION_BY_ID
             case 'avanan_dlp' | 'avanan_url' | 'checkpoint2' if itemId is None:
-                EXCEPTION2_ID_PATH = EXCEPTION3_ALL    #change path to support this type. Requires sectool (excType) and exceptiontype (excType2)
+                EXCEPTION2_ID_PATH = EXCEPTION3_ALL_BY_TYPE    #change path to support this type. Requires sectool (excType) and exceptiontype (excType2)
             case 'avanan_dlp' | 'avanan_url' | 'checkpoint2' if itemId is not None:
                 EXCEPTION2_ID_PATH = EXCEPTION3_BY_ID    #change path to support this type. Requires sectool (excType) and exceptiontype (excType2)
             case _:
